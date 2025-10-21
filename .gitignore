@@ -1,0 +1,4 @@
+/.lake
+.clangd
+/minifb/build
+/lib
