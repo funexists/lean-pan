@@ -54,3 +54,6 @@ build: build_minifb
 
 run: build
     LIBRARY_PATH={{library_path}} LEAN_CC={{native_compiler}} lake exe lean-pan
+
+run-mouse: build
+    LIBRARY_PATH={{library_path}} LEAN_CC={{native_compiler}} lake exe mouse

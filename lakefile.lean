@@ -16,6 +16,17 @@ lean_exe "lean-pan" where
     "-framework", "QuartzCore"
   ]
 
+lean_exe "mouse" where
+  root := `MainMouse
+  moreLeancArgs := #["-O3"]
+  moreLinkArgs := #[
+    "lib/libminifb.a",
+    "-framework", "Cocoa",
+    "-framework", "Metal",
+    "-framework", "MetalKit",
+    "-framework", "QuartzCore"
+  ]
+
 target minifb_bindings.o pkg : FilePath := do
   let oFile := pkg.buildDir / "c" / "minifb_bindings.o"
   let srcJob ← inputTextFile <| pkg.dir / "c" / "minifb_bindings.c"
