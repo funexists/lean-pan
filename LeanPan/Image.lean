@@ -69,6 +69,12 @@ def translate {c : Type} (pan_x pan_y : Float) (r : Image c) : Image c :=
     let y' := y - pan_y
     r ⟨x', y'⟩
 
+@[inline]
+def UInt8.fromIntensity (intensity : Float) : UInt8 := (intensity * (2^8 - 1).toFloat).floor.toUInt8
+
+@[inline]
+def UInt8.toIntensity (i : UInt8) : Float := i.toFloat / (2^8 - 1).toFloat
+
 structure Color where
   r : UInt8
   g : UInt8
@@ -87,7 +93,27 @@ def toUInt32 (c : Color) : UInt32 := mfb_argb c.a c.r c.g c.b
 @[inline] def blue  : Color := mk 0x00 0x00 0xFF 0xFF
 /-- Grey scale between 0 and 1, 0=white, 1=black -/
 @[inline] def grey (intensity : Float) : Color :=
-  let intensity := ((1 - intensity) * (2^8 - 1).toFloat).floor.toUInt8
+  let intensity := UInt8.fromIntensity (1 - intensity)
   mk intensity intensity intensity 0xFF
 
 end Color
+
+/-- Internpolate between colors -/
+@[inline]
+def lerpC (weight : Float) (startColor endColor : Color) : Color :=
+ let h : UInt8 → UInt8 → UInt8 :=
+   fun x₁ x₂ =>
+     weight * x₁.toIntensity + (1 - weight) * x₂.toIntensity |> UInt8.fromIntensity
+ {b := h startColor.b endColor.b,
+  g := h startColor.g endColor.g,
+  r := h startColor.r endColor.r,
+  a := h startColor.a endColor.a
+  : Color}
+
+/-- Interpolate among four colors in two dimensions --/
+@[inline]
+def bilerpC (topLeft topRight bottomLeft bottomRight : Color) (p : Point) : Color :=
+  let ⟨x, y⟩ := p
+  let top := lerpC x topLeft topRight
+  let bottom := lerpC x bottomLeft bottomRight
+  lerpC y top bottom
