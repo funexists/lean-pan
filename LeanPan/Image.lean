@@ -53,6 +53,9 @@ def gasket : Region :=
   fun ⟨x, y⟩ => x.floor.toInt64 ||| y.floor.toInt64 == x.floor.toInt64
 
 @[inline]
+def wavDist : Image Float := fun p => (1 + (pi * p.abs).cos) / 2
+
+@[inline]
 def zoom (factor : Float) (r : Region) : Region :=
   fun ⟨x, y⟩ =>
     let x' := x / factor
@@ -82,5 +85,9 @@ def toUInt32 (c : Color) : UInt32 := mfb_argb c.a c.r c.g c.b
 @[inline] def red   : Color := mk 0xFF 0x00 0x00 0xFF
 @[inline] def green : Color := mk 0x00 0xFF 0x00 0xFF
 @[inline] def blue  : Color := mk 0x00 0x00 0xFF 0xFF
+/-- Grey scale between 0 and 1, 0=white, 1=black -/
+@[inline] def grey (intensity : Float) : Color :=
+  let intensity := ((1 - intensity) * (2^8 - 1).toFloat).floor.toUInt8
+  mk intensity intensity intensity 0xFF
 
 end Color
