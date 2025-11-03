@@ -56,14 +56,14 @@ def gasket : Region :=
 def wavDist : Image Float := fun p => (1 + (pi * p.abs).cos) / 2
 
 @[inline]
-def zoom (factor : Float) (r : Region) : Region :=
+def zoom {c : Type} (factor : Float) (r : Image c) : Image c :=
   fun ⟨x, y⟩ =>
     let x' := x / factor
     let y' := y / factor
     r ⟨x', y'⟩
 
 @[inline]
-def translate (pan_x pan_y : Float) (r : Region) : Region :=
+def translate {c : Type} (pan_x pan_y : Float) (r : Image c) : Image c :=
   fun ⟨x, y⟩ =>
     let x' := x - pan_x
     let y' := y - pan_y
