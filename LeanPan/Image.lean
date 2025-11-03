@@ -2,15 +2,31 @@ import LeanPan.MiniFB
 
 def Point := Float × Float
 
+def PolarPoint := Float × Float
+
 def Image (c : Type) := Point → c
 
 def Region := Image Bool
+
+def pi : Float := 3.1415926
 
 @[inline]
 def Float.isEven (x : Float) : Bool := x.toInt64 % 2 == 0
 
 @[inline]
 def Point.abs (p : Point) : Float := (p.fst * p.fst + p.snd * p.snd).sqrt
+
+@[inline]
+def Point.fromPolar : PolarPoint → Point :=
+  fun ⟨ρ, θ⟩ => ⟨ρ * θ.cos, ρ * θ.cos⟩
+
+@[inline]
+def Point.toPolar : Point → PolarPoint :=
+  fun p =>
+    let ρ := p.abs
+    let ⟨x, y⟩ := p
+    let θ := Float.atan2 y x
+    ⟨ρ, θ⟩
 
 /-- Vertical strip centered on the y-axis with half-width 0.5 -/
 @[inline]
@@ -19,6 +35,13 @@ def vstrip : Region := fun p => p.fst.abs <= 0.5
 /-- Checkerboard pattern based on floored coordinates -/
 @[inline]
 def checker : Region := fun ⟨x, y⟩ => (x.floor + y.floor).isEven
+
+@[inline]
+def polarChecker (n : Nat) : Region :=
+  let sc := fun (p : PolarPoint) =>
+    let ⟨ρ, θ⟩ := p
+    ⟨ρ, θ * (n.toFloat / pi)⟩
+  checker ∘ sc ∘ Point.toPolar
 
 /-- Alternating concentric rings based on radial distance -/
 @[inline]

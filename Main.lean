@@ -5,7 +5,7 @@ abbrev State := Unit
 
 @[export image_frame]
 def imageFrame (_state : Unit) (x y : Float) : UInt32 :=
-  if checker ⟨x, y⟩ then Color.white.toUInt32 else Color.black.toUInt32
+  if polarChecker 10 ⟨x, y⟩ then Color.white.toUInt32 else Color.black.toUInt32
 
 @[extern "render"]
 opaque render : (state : @& State) → IO Bool
