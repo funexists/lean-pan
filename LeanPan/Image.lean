@@ -75,14 +75,37 @@ def UInt8.fromIntensity (intensity : Float) : UInt8 := (intensity * (2^8 - 1).to
 @[inline]
 def UInt8.toIntensity (i : UInt8) : Float := i.toFloat / (2^8 - 1).toFloat
 
+@[unbox]
 structure Color where
   r : UInt8
   g : UInt8
   b : UInt8
   a : UInt8 := 0xFF
+  deriving instance Inhabited for Color
+
+structure ColorUnbox where
+  priv_mk ::
+  argb : UInt32
+  deriving instance Inhabited for ColorUnbox
+
+namespace ColorUnbox
+
+@[inline]
+def mk (a r g b : UInt8) : ColorUnbox := priv_mk (mfb_argb a r g b)
+
+@[inline] def black := mk 0xFF 0x00 0x00 0x00  -- (a=0xFF, r=0x00, g=0x00, b=0x00)
+@[inline] def white := mk 0xFF 0xFF 0xFF 0xFF  -- (a=0xFF, r=0xFF, g=0xFF, b=0xFF)
+@[inline] def red := mk 0xFF 0xFF 0x00 0x00    -- (a=0xFF, r=0xFF, g=0x00, b=0x00)
+@[inline] def green := mk 0xFF 0x00 0xFF 0x00  -- (a=0xFF, r=0x00, g=0xFF, b=0x00)
+@[inline] def blue  := mk 0xFF 0x00 0x00 0xFF  -- (a=0xFF, r=0x00, g=0x00, b=0xFF)
+/-- Grey scale between 0 and 1, 0=white, 1=black -/
+@[inline] def grey (intensity : Float) : ColorUnbox :=
+  let intensity := UInt8.fromIntensity (1 - intensity)
+  mk 0xFF intensity intensity intensity  -- (a=0xFF, r=intensity, g=intensity, b=intensity)
+
+end ColorUnbox
 
 namespace Color
-
 @[inline]
 def toUInt32 (c : Color) : UInt32 := mfb_argb c.a c.r c.g c.b
 
@@ -110,6 +133,12 @@ def lerpC (weight : Float) (startColor endColor : Color) : Color :=
   a := h startColor.a endColor.a
   : Color}
 
+@[extern "lerpC_simd_color"]
+opaque lerpC_simd (weight : Float) (startColor endColor : @& Color) : Color
+
+@[extern "lerpC_simd"]
+opaque lerpC_simd_unbox (weight : Float) (startColor endColor : UInt32) : UInt32
+
 /-- Interpolate among four colors in two dimensions --/
 @[inline]
 def bilerpC (topLeft topRight bottomLeft bottomRight : Color) (p : Point) : Color :=
@@ -117,3 +146,24 @@ def bilerpC (topLeft topRight bottomLeft bottomRight : Color) (p : Point) : Colo
   let top := lerpC x topLeft topRight
   let bottom := lerpC x bottomLeft bottomRight
   lerpC y top bottom
+
+/-- SIMD-accelerated bilinear interpolation --/
+@[inline]
+def bilerpC_simd (topLeft topRight bottomLeft bottomRight : Color) (p : Point) : Color :=
+  let ⟨x, y⟩ := p
+  let top := lerpC_simd x topLeft topRight
+  let bottom := lerpC_simd x bottomLeft bottomRight
+  lerpC_simd y top bottom
+
+@[inline]
+def bilerpC_simd_unbox (topLeft topRight bottomLeft bottomRight : ColorUnbox) (p : Point) : ColorUnbox :=
+  let ⟨x, y⟩ := p
+  let top_argb := lerpC_simd_unbox x topLeft.argb topRight.argb
+  let bottom_argb := lerpC_simd_unbox x bottomLeft.argb bottomRight.argb
+  let result_argb := lerpC_simd_unbox y (ColorUnbox.priv_mk top_argb).argb (ColorUnbox.priv_mk bottom_argb).argb
+  ColorUnbox.priv_mk result_argb
+
+@[inline]
+def overC (top bot : Color) : Color :=
+  let h := fun (x₁ x₂ : UInt8) => x₁.toIntensity + (1 - top.a.toIntensity) * x₂.toIntensity |> UInt8.fromIntensity
+  { b := h top.b bot.b, g := h top.g bot.g, r := h top.r bot.r, a := h top.a bot.a : Color }

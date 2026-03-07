@@ -8,6 +8,8 @@ lean_lib LeanPan
 @[default_target]
 lean_exe "lean-pan" where
   root := `Main
+  moreLeancArgs := #["-O3"]
+  -- moreLeancArgs := #["-g", "-O0", "-fno-omit-frame-pointer"]
   moreLinkArgs := #[
     "lib/libminifb.a",
     "-framework", "Cocoa",
@@ -19,6 +21,7 @@ lean_exe "lean-pan" where
 lean_exe "mouse" where
   root := `MainMouse
   moreLeancArgs := #["-O3"]
+  -- moreLeancArgs := #["-g", "-O0", "-fno-omit-frame-pointer"]
   moreLinkArgs := #[
     "lib/libminifb.a",
     "-framework", "Cocoa",
@@ -32,6 +35,7 @@ target minifb_bindings.o pkg : FilePath := do
   let srcJob ← inputTextFile <| pkg.dir / "c" / "minifb_bindings.c"
   let minifbInclude := pkg.dir / "minifb" / "include"
   let weakArgs := #["-I", s!"{minifbInclude}", "-Wall", "-Wextra", "-Werror", "-O3"]
+  -- let weakArgs := #["-I", s!"{minifbInclude}", "-Wall", "-Wextra", "-Werror", "-g", "-O0"]
   let mut traceArgs := #["-fPIC"]
   buildLeanO oFile srcJob weakArgs traceArgs
 

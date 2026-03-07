@@ -6,6 +6,7 @@
 #include <lean/lean.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <arm_neon.h>
 
 typedef struct {
   struct mfb_window *window;
@@ -22,6 +23,72 @@ static core_data CORE = {0};
 #define IO_UNIT (lean_io_result_mk_ok(lean_box(0)))
 #define IO_ERROR(msg)                                                          \
   (lean_io_result_mk_error(lean_mk_io_user_error(lean_mk_string((msg)))))
+
+
+uint32_t lerpC_simd(float weight, uint32_t startColor, uint32_t endColor) {
+  // Load colors as bytes
+  uint8x8_t start_u8 = vreinterpret_u8_u32(vdup_n_u32(startColor));
+  uint8x8_t end_u8 = vreinterpret_u8_u32(vdup_n_u32(endColor));
+
+  // Convert to float (first 4 elements)
+  uint16x4_t start_u16 = vget_low_u16(vmovl_u8(start_u8));
+  uint16x4_t end_u16 = vget_low_u16(vmovl_u8(end_u8));
+  float32x4_t start_f = vcvtq_f32_u32(vmovl_u16(start_u16));
+  float32x4_t end_f = vcvtq_f32_u32(vmovl_u16(end_u16));
+
+  // Normalize to [0, 1]
+  float32x4_t divisor = vdupq_n_f32(255.0f);
+  start_f = vdivq_f32(start_f, divisor);
+  end_f = vdivq_f32(end_f, divisor);
+
+  // Lerp: weight * start + (1 - weight) * end
+  float32x4_t w = vdupq_n_f32(weight);
+  float32x4_t inv_w = vdupq_n_f32(1.0f - weight);
+  float32x4_t result = vmlaq_f32(vmulq_f32(inv_w, end_f), w, start_f);
+
+  // Convert back to bytes
+  float32x4_t scaled = vmulq_f32(result, divisor);
+  uint32x4_t result_u32 = vcvtq_u32_f32(scaled);
+  uint16x4_t result_u16 = vmovn_u32(result_u32);
+  uint8x8_t result_u8 = vmovn_u16(vcombine_u16(result_u16, result_u16));
+
+  return vget_lane_u32(vreinterpret_u32_u8(result_u8), 0);
+}
+
+/*
+ * lerpC_simd_color - Lean Color structure wrapper for lerpC_simd
+ * Takes Lean Color structures and converts them to/from uint32_t
+ */
+lean_obj_res lerpC_simd_color(double weight, b_lean_obj_arg startColor,
+                               b_lean_obj_arg endColor) {
+  uint8_t start_r = lean_ctor_get_uint8(startColor, 0);
+  uint8_t start_g = lean_ctor_get_uint8(startColor, 1);
+  uint8_t start_b = lean_ctor_get_uint8(startColor, 2);
+  uint8_t start_a = lean_ctor_get_uint8(startColor, 3);
+
+  uint8_t end_r = lean_ctor_get_uint8(endColor, 0);
+  uint8_t end_g = lean_ctor_get_uint8(endColor, 1);
+  uint8_t end_b = lean_ctor_get_uint8(endColor, 2);
+  uint8_t end_a = lean_ctor_get_uint8(endColor, 3);
+
+  uint32_t start_u32 = MFB_ARGB(start_a, start_r, start_g, start_b);
+  uint32_t end_u32 = MFB_ARGB(end_a, end_r, end_g, end_b);
+
+  uint32_t result_u32 = lerpC_simd((float)weight, start_u32, end_u32);
+
+  uint8_t result_a = (result_u32 >> 24) & 0xFF;
+  uint8_t result_r = (result_u32 >> 16) & 0xFF;
+  uint8_t result_g = (result_u32 >> 8) & 0xFF;
+  uint8_t result_b = result_u32 & 0xFF;
+
+  lean_object* result = lean_alloc_ctor(0, 0, 4);
+  lean_ctor_set_uint8(result, 0, result_r);
+  lean_ctor_set_uint8(result, 1, result_g);
+  lean_ctor_set_uint8(result, 2, result_b);
+  lean_ctor_set_uint8(result, 3, result_a);
+
+  return result;
+}
 
 /*
  * initWindow
@@ -163,6 +230,7 @@ lean_obj_res is_key_down(lean_obj_arg key_obj, lean_obj_arg world) {
   }
   return lean_io_result_mk_ok(lean_box(down != 0));
 }
+
 
 uint32_t mfb_argb(uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
   return MFB_ARGB(a, r, g, b);
